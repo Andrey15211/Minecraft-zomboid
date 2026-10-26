@@ -49,3 +49,6 @@ java {
 		languageVersion = JavaLanguageVersion.of(25)
 	}
 }
+
+// Foojay toolchain resolver plugin (settings.gradle) lets Gradle auto-download JDK 25
+// when no local install matches; see settings.gradle.

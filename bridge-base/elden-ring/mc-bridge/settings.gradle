@@ -9,4 +9,10 @@ pluginManagement {
 	}
 }
 
+plugins {
+	// Foojay resolver: auto-downloads the JDK the toolchain asks for (25) when absent.
+	// 1.0.0+ is the line compatible with Gradle 9 (IBM_SEMERU vendor constant removed).
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 rootProject.name = 'er-bridge'

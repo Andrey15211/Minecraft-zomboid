@@ -58,6 +58,15 @@
 !/bridge-base/elden-ring/mc-bridge/build.gradle
 !/bridge-base/elden-ring/mc-bridge/settings.gradle
 !/bridge-base/elden-ring/mc-bridge/gradle.properties
+# Project Zomboid host bridge (Java, injected via -cp by Launch-PZ.bat).
+!/bridge-base/zomboid/
+/bridge-base/zomboid/*
+!/bridge-base/zomboid/pz-bridge/
+/bridge-base/zomboid/pz-bridge/*
+!/bridge-base/zomboid/pz-bridge/src/
+!/bridge-base/zomboid/pz-bridge/test/
+!/bridge-base/zomboid/pz-bridge/Launch-PZ.bat
+!/bridge-base/zomboid/README.md
 # Generated files and private configuration, including inside source folders.
 **/.git/
 **/.gradle/
