@@ -68,14 +68,30 @@ public final class MainWrapper {
         try {
             IsoPlayer p = IsoPlayer.getInstance();
             if (p != null) {
-                shm.publishPlayerState(p.getX(), p.getY(), p.getZ(), p.getDirectionAngle(), true, true);
+                shm.publishPlayerState(p.getX(), p.getY(), p.getZ(), p.getDirectionAngle(),
+                        readViewpointPitch(), true, true);
             } else {
                 // Still in menus: mark the snapshot invalid so the MC side waits.
-                shm.publishPlayerState(0f, 0f, 0f, 0f, false, false);
+                shm.publishPlayerState(0f, 0f, 0f, 0f, 0f, false, false);
             }
         } catch (NoClassDefFoundError | NoSuchFieldError | NoSuchMethodError e) {
             // The world classes exist but are not initialised yet (main menu); keep the heartbeat only.
-            shm.publishPlayerState(0f, 0f, 0f, 0f, false, false);
+            shm.publishPlayerState(0f, 0f, 0f, 0f, 0f, false, false);
+        }
+    }
+
+    /**
+     * Viewpoint's live head-look pitch in degrees (positive = up). The Viewpoint
+     * classes are loaded by its Java agent after the game boots, so they are only
+     * reachable reflectively, and only when the first-person rig is running.
+     * Without Viewpoint, PZ has no vertical look: pitch stays 0.
+     */
+    private static float readViewpointPitch() {
+        try {
+            Class<?> headLook = Class.forName("viewpoint.input.HeadLook");
+            return (Float) headLook.getMethod("pitch").invoke(null);
+        } catch (Throwable t) {
+            return 0f;
         }
     }
 

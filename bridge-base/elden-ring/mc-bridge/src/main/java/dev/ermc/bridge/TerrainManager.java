@@ -890,14 +890,20 @@ public final class TerrainManager {
 			return;
 		}
 		Vec3 feet = map.toMc(STATE.playerPos[0], STATE.playerPos[1], STATE.playerPos[2]);
-		double a = 2.0 * Math.atan2(STATE.playerQuat[1], STATE.playerQuat[3]);
-		Vec3 f = map.dirToMc(-Math.sin(a), 0.0, -Math.cos(a));
+		// The quaternion is yaw*pitch; the forward vector q*(0,0,-1) carries both.
+		double qx = STATE.playerQuat[0], qy = STATE.playerQuat[1], qz = STATE.playerQuat[2], qw = STATE.playerQuat[3];
+		float fx = (float) (2 * (qx * qz + qw * qy));
+		float fy = (float) (1 - 2 * (qx * qx + qy * qy));
+		float fz = (float) (2 * (qz * qw - qx * qy));
+		Vec3 f = map.dirToMc(-fx, -fy, -fz).normalize();
 		float yaw = (float) Math.toDegrees(Math.atan2(-f.x, f.z));
+		// pitch positive = looking up, mirroring MC's convention.
+		float pitch = (float) Math.toDegrees(-Math.asin(Math.max(-1.0, Math.min(1.0, f.y))));
 		double groundY = Math.ceil(feet.y * 16 - 1e-4) / 16 + 0.01;
 		// Keep a floor patch under the followed position until real terrain arrives.
 		placeFloor(server.overworld(), feet);
 		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-			p.connection.teleport(feet.x, groundY, feet.z, yaw, 0.0F);
+			p.connection.teleport(feet.x, groundY, feet.z, yaw, pitch);
 			p.setDeltaMovement(Vec3.ZERO);
 			p.fallDistance = 0.0F;
 		}

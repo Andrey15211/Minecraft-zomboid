@@ -76,7 +76,8 @@ public final class PzShm {
      * of MC, matching CoordMap's HOST_FLIP_Z for a 2D top-down world).
      * PZ world units are tiles (1 tile = 1 metre), same as MC blocks: 1:1.
      */
-    public void publishPlayerState(float x, float y, float z, float dirAngle, boolean playerValid, boolean windowValid) {
+    public void publishPlayerState(float x, float y, float z, float dirAngle, float pitchDeg,
+                                   boolean playerValid, boolean windowValid) {
         int base = Protocol.OFF_STATE;
         int seq = stateSeq;
         INT.setOpaque(buf, base + Protocol.S_SEQ, seq + 1); // odd = write in progress
@@ -104,11 +105,18 @@ public final class PzShm {
         // host yaw is 180 degrees when facing north; west (-pzX) is 90.
         float hostYawDeg = dirAngle + 180f;
         float yawRad = (float) Math.toRadians(hostYawDeg);
-        // Y-rotation quaternion (host up axis); mc-bridge reads quat[1] (Y) for its yaw.
-        buf.putFloat(base + Protocol.S_PLAYER_QUAT, 0f);
-        buf.putFloat(base + Protocol.S_PLAYER_QUAT + 4, (float) Math.sin(yawRad / 2f));
-        buf.putFloat(base + Protocol.S_PLAYER_QUAT + 8, 0f);
-        buf.putFloat(base + Protocol.S_PLAYER_QUAT + 12, (float) Math.cos(yawRad / 2f));
+        // pitch: Viewpoint's head-look pitch, degrees, positive = looking up in MC.
+        float pitchRad = (float) Math.toRadians(pitchDeg);
+        // Y-then-X quaternion (host up = Y, pitch about the right/side axis):
+        // q = qYaw(Y) * qPitch(X). mc-bridge reads quat[1]/quat[3] for yaw; the
+        // x/sin-pitch terms carry the vertical component.
+        float cy = (float) Math.cos(yawRad / 2f), sy = (float) Math.sin(yawRad / 2f);
+        float cp = (float) Math.cos(pitchRad / 2f), sp = (float) Math.sin(pitchRad / 2f);
+        // qYaw = (0, sy, 0, cy); qPitch = (sp, 0, 0, cp); product qYaw*qPitch:
+        buf.putFloat(base + Protocol.S_PLAYER_QUAT, sp * cy);
+        buf.putFloat(base + Protocol.S_PLAYER_QUAT + 4, sy * cp);
+        buf.putFloat(base + Protocol.S_PLAYER_QUAT + 8, -sy * sp);
+        buf.putFloat(base + Protocol.S_PLAYER_QUAT + 12, cy * cp);
         // stageId 1 = "in world": mc-bridge treats 0 as a loading screen and never
         // anchors a zone, so the teleport to the host player would never fire.
         buf.putInt(base + Protocol.S_STAGE, playerValid ? 1 : 0);
