@@ -69,9 +69,12 @@ public final class PzShm {
     }
 
     /**
-     * Publishes the player snapshot as ErmcGameState. PZ world units are tiles
-     * (1 tile = 1 metre), same convention Minecraft uses for blocks, so the value
-     * is passed through unchanged; unitsPerMeter is written for the MC side to check.
+     * Publishes the player snapshot as ErmcGameState, in the host-game coordinate
+     * convention the protocol expects (Elden Ring / D3D: X right, Y up, Z forward).
+     * PZ's own axes are X = east, Y = map-south, Z = altitude, so they are remapped:
+     * hostX = pzX, hostY = pzZ (height), hostZ = -pzY (flip keeps the map a mirror
+     * of MC, matching CoordMap's HOST_FLIP_Z for a 2D top-down world).
+     * PZ world units are tiles (1 tile = 1 metre), same as MC blocks: 1:1.
      */
     public void publishPlayerState(float x, float y, float z, float dirAngle, boolean playerValid, boolean windowValid) {
         int base = Protocol.OFF_STATE;
@@ -83,24 +86,32 @@ public final class PzShm {
         if (windowValid) flags |= Protocol.STATE_WINDOW_VALID;
         buf.putInt(base + Protocol.S_FLAGS, flags);
         buf.putLong(base + Protocol.S_FRAME, seq + 1);
+        float hx = x, hy = z, hz = -y;
         // PZ camera == player position for now (isometric camera comes later)
-        buf.putFloat(base + Protocol.S_CAM_POS, x);
-        buf.putFloat(base + Protocol.S_CAM_POS + 4, y);
-        buf.putFloat(base + Protocol.S_CAM_POS + 8, z);
+        buf.putFloat(base + Protocol.S_CAM_POS, hx);
+        buf.putFloat(base + Protocol.S_CAM_POS + 4, hy);
+        buf.putFloat(base + Protocol.S_CAM_POS + 8, hz);
         buf.putFloat(base + Protocol.S_FOVY, 0f);
         buf.putFloat(base + Protocol.S_NEAR, 0.1f);
         buf.putFloat(base + Protocol.S_FAR, 100f);
         buf.putFloat(base + Protocol.S_ASPECT, 16f / 9f);
         buf.putFloat(base + Protocol.S_UNITS_PER_METER, 1.0f);
-        buf.putFloat(base + Protocol.S_PLAYER_POS, x);
-        buf.putFloat(base + Protocol.S_PLAYER_POS + 4, y);
-        buf.putFloat(base + Protocol.S_PLAYER_POS + 8, z);
-        // Quaternion from facing angle (PZ: 0 = north/+Y), yaw around Z.
-        float yawRad = (float) Math.toRadians(dirAngle);
+        buf.putFloat(base + Protocol.S_PLAYER_POS, hx);
+        buf.putFloat(base + Protocol.S_PLAYER_POS + 4, hy);
+        buf.putFloat(base + Protocol.S_PLAYER_POS + 8, hz);
+        // host yaw: 0 = -Z (protocol forward), PZ angle 0 = north (+Z in host frame
+        // after the remap, since pzY map-south -> hostZ = -pzY). North = +Z, so the
+        // host yaw is 180 degrees when facing north; west (-pzX) is 90.
+        float hostYawDeg = dirAngle + 180f;
+        float yawRad = (float) Math.toRadians(hostYawDeg);
+        // Y-rotation quaternion (host up axis); mc-bridge reads quat[1] (Y) for its yaw.
         buf.putFloat(base + Protocol.S_PLAYER_QUAT, 0f);
-        buf.putFloat(base + Protocol.S_PLAYER_QUAT + 4, 0f);
-        buf.putFloat(base + Protocol.S_PLAYER_QUAT + 8, (float) Math.sin(yawRad / 2f));
+        buf.putFloat(base + Protocol.S_PLAYER_QUAT + 4, (float) Math.sin(yawRad / 2f));
+        buf.putFloat(base + Protocol.S_PLAYER_QUAT + 8, 0f);
         buf.putFloat(base + Protocol.S_PLAYER_QUAT + 12, (float) Math.cos(yawRad / 2f));
+        // stageId 1 = "in world": mc-bridge treats 0 as a loading screen and never
+        // anchors a zone, so the teleport to the host player would never fire.
+        buf.putInt(base + Protocol.S_STAGE, playerValid ? 1 : 0);
         INT.setRelease(buf, base + Protocol.S_SEQ, seq + 2);
         stateSeq = seq + 2;
     }

@@ -44,4 +44,5 @@ public final class Protocol {
     public static final int S_UNITS_PER_METER = 0x44;
     public static final int S_PLAYER_POS = 0x48;
     public static final int S_PLAYER_QUAT = 0x54;
+    public static final int S_STAGE = 0x7C;
 }

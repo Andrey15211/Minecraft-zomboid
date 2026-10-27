@@ -19,7 +19,11 @@ loom {
 	runs {
 		client {
 			programArgs '--username', 'Steve'
-			vmArgs '-Xms512m', '-Xmx3g'
+			// erbridge.disableOverlay: the overlay's SetWindowLongPtr ownership tricks crash
+		// PZ's GLFW render thread (glfw.dll+0x10fa1 in lockStepRenderStep); Stage 3 needs
+		// the link only, so MC runs as a normal window until the compositor stage.
+		// The property also neutralizes WindowMixin's windowed-mode redirect.
+		vmArgs '-Xms512m', '-Xmx3g', '-Derbridge.disableOverlay=true'
 		}
 	}
 }
