@@ -340,6 +340,11 @@ public final class TerrainManager {
 				recallDoneAtMs = System.currentTimeMillis();
 				recallDone = gen;
 			}
+			// Stage 3 (PZ host): the host player is the driver; keep the players on its
+			// live position while it walks, not only on recall events (life changes, zones).
+			if (STATE.has(Protocol.STATE_PLAYER_VALID)) {
+				followHostPlayer(server);
+			}
 		}
 		CoordMap.Mapping map = CoordMap.get();
 		ServerLevel level = server.overworld();
@@ -872,6 +877,30 @@ public final class TerrainManager {
 		}
 		player.teleportTo(level, target.x, Math.ceil(target.y * 16 - 1e-4) / 16 + 0.01, target.z, yaw, 0.0F);
 		LOG.info("Moved {} to the Tarnished at {} (yaw {})", player.getName().getString(), target, Math.round(yaw));
+	}
+
+	/**
+	 * Stage 3: continuously move the players onto the host player's live position.
+	 * Uses entity position moves (connection.setPos / lookAt) instead of teleportTo:
+	 * no client teleport packet, no chunk resend, no fall damage reset every tick.
+	 */
+	private static void followHostPlayer(MinecraftServer server) {
+		CoordMap.Mapping map = CoordMap.get();
+		if (map == null || map.provisional() || map.zone() != STATE.stageId) {
+			return;
+		}
+		Vec3 feet = map.toMc(STATE.playerPos[0], STATE.playerPos[1], STATE.playerPos[2]);
+		double a = 2.0 * Math.atan2(STATE.playerQuat[1], STATE.playerQuat[3]);
+		Vec3 f = map.dirToMc(-Math.sin(a), 0.0, -Math.cos(a));
+		float yaw = (float) Math.toDegrees(Math.atan2(-f.x, f.z));
+		double groundY = Math.ceil(feet.y * 16 - 1e-4) / 16 + 0.01;
+		// Keep a floor patch under the followed position until real terrain arrives.
+		placeFloor(server.overworld(), feet);
+		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+			p.connection.teleport(feet.x, groundY, feet.z, yaw, 0.0F);
+			p.setDeltaMovement(Vec3.ZERO);
+			p.fallDistance = 0.0F;
+		}
 	}
 
 	/** A small floor of terrain blocks under {@code feet}. */
